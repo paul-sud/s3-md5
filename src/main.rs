@@ -58,7 +58,12 @@ async fn main() {
             0 => break,
             _ => {}
         }
-        hasher.update(&buffer)
+        hasher.update(&buffer[..result]);
+        // We never read uninitialized data from the buffer, so this is OK. `read_buf`
+        // will set the bytes and we only pass read bytes in the slice to the hasher.
+        unsafe {
+            buffer.set_len(0);
+        };
     }
     let final_hash = hasher.finalize();
     println!("{}", hex::encode(final_hash));
