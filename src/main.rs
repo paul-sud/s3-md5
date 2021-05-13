@@ -13,6 +13,9 @@ struct Args {
     /// S3 URI to compute md5sum, should take form of s3://foo/bar/baz.qux
     #[structopt()]
     s3_uri: String,
+    /// Buffer size
+    #[structopt(short, long, default_value = "8192")]
+    buffer_size: usize,
 }
 
 struct S3Uri {
@@ -34,24 +37,20 @@ impl S3Uri {
 async fn main() {
     let args = Args::from_args();
     let s3_uri = S3Uri::from_string(&args.s3_uri);
-    // Adapted from
-    // https://github.com/rusoto/rusoto/blob/master/integration_tests/tests/s3.rs
     let client = S3Client::new(Region::UsEast2);
     let get_req = GetObjectRequest {
         bucket: s3_uri.bucket,
         key: s3_uri.key,
         ..Default::default()
     };
-
     let result = client
         .get_object(get_req)
         .await
         .expect("Couldn't GET object");
-
     let stream = result.body.unwrap();
     let mut hasher = Md5::new();
     let mut body = stream.into_async_read();
-    let mut buffer = BytesMut::with_capacity(8192);
+    let mut buffer = BytesMut::with_capacity(args.buffer_size);
     loop {
         let result = body.read_buf(&mut buffer).await.unwrap();
         match result {
